@@ -32,10 +32,6 @@ const deck = new Reveal({
   center: true,
   pdfSeparateFragments: false,
   markdown: { animateLists: true },
-  keyboard: {
-    37: () => deck.left({ skipFragments: true }),
-    39: () => deck.right({ skipFragments: true }),
-  },
   plugins: [Markdown, Highlight, Notes, Search],
 });
 

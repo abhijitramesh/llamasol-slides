@@ -66,8 +66,10 @@ when incorporated into slides. The referenced Excalidraw drawing is not included
 ## Present and export
 
 - Arrow keys / Space: navigate. Esc: overview. F: fullscreen. S: speaker view.
-- Right / Left switches main sections. Down / Up navigates vertical slides
-  within a section and reveals fragments. Space advances through the deck.
+- Right reveals the next point before switching main sections; Left hides
+  points before moving back. Down / Up reveals or hides points, then navigates
+  vertical slides within a section. Space advances through the whole deck.
+- Alt+Right / Alt+Left skips points to switch main sections immediately.
 - On the SOL Score slider, Left/Right adjusts runtime; Up/Down, Space, and
   Page Up/Down return to slide navigation. Escape releases slider focus.
   Preset buttons retain Space/Enter activation and allow arrow navigation.
