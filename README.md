@@ -68,6 +68,9 @@ when incorporated into slides. The referenced Excalidraw drawing is not included
 - Arrow keys / Space: navigate. Esc: overview. F: fullscreen. S: speaker view.
 - Right / Left switches main sections. Down / Up navigates vertical slides
   within a section and reveals fragments. Space advances through the deck.
+- On the SOL Score slider, Left/Right adjusts runtime; Up/Down, Space, and
+  Page Up/Down return to slide navigation. Escape releases slider focus.
+  Preset buttons retain Space/Enter activation and allow arrow navigation.
 - Ctrl+Shift+F: search. ?: keyboard shortcuts.
 - Open http://localhost:5173/?print-pdf in Chrome/Chromium, then print to PDF with
   landscape orientation, no margins, background graphics enabled, and browser

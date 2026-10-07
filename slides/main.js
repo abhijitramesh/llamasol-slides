@@ -41,6 +41,11 @@ const deck = new Reveal({
 
 await deck.initialize();
 initializeScoreChart();
+deck.on('slidechanged', event => {
+  // A control on a hidden slide must not keep swallowing keyboard shortcuts.
+  const focused = document.activeElement;
+  if (event.previousSlide?.contains(focused)) focused.blur();
+});
 renderMathInElement(deck.getSlidesElement(), {
   delimiters: [
     { left: '$$', right: '$$', display: true },

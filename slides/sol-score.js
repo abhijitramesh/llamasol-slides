@@ -68,10 +68,22 @@ export function initializeScoreChart(root = document) {
     slider.setAttribute('aria-valuetext', `${runtime} runtime units, SOL score ${score.toFixed(3)}. ${status}.`);
   };
   slider.addEventListener('input', () => update(Number(slider.value)));
-  slider.addEventListener('keydown', event => event.stopPropagation());
+  slider.addEventListener('keydown', event => {
+    // Keep native range adjustment, but release focus before Reveal handles
+    // navigation (Reveal ignores all shortcuts while an input is focused).
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      event.stopPropagation();
+    } else if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', ' ', 'Escape', 'n', 'p'].includes(event.key)) {
+      slider.blur();
+      event.preventDefault();
+    }
+  });
   root.querySelectorAll('[data-score-runtime]').forEach(button => {
     button.addEventListener('click', () => update(Number(button.dataset.scoreRuntime)));
-    button.addEventListener('keydown', event => event.stopPropagation());
+    button.addEventListener('keydown', event => {
+      // Space/Enter activate the preset. Arrow keys remain slide navigation.
+      if (event.key === ' ' || event.key === 'Enter') event.stopPropagation();
+    });
   });
   update(100);
 }
