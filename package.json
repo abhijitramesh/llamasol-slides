@@ -1,0 +1,21 @@
+{
+  "name": "sol-execbench-slides",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "start": "npm run dev",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@fontsource/roboto": "5.3.0",
+    "@fontsource/roboto-slab": "5.3.0",
+    "katex": "0.19.0",
+    "reveal.js": "6.0.2"
+  },
+  "devDependencies": {
+    "vite": "8.3.3"
+  }
+}
