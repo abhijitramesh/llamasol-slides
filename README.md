@@ -1,5 +1,8 @@
 # LlamaSOL slides
 
+[View the slides](https://abhijitramesh.github.io/llamasol-slides/) ·
+[Deployment status](https://github.com/abhijitramesh/llamasol-slides/actions/workflows/deploy.yml)
+
 Reveal.js presentations for the LlamaSOL project. The current deck reviews
 [SOL-ExecBench](https://arxiv.org/abs/2603.19173) and explores extending its ideas
 to end-to-end inference in llama.cpp.
