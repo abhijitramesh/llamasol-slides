@@ -912,6 +912,137 @@ The statement about release status refers to this supplied paper version. The pu
 
 ---
 
+<!-- .slide: class="experiment-slide experiment-setup" -->
+## Experiments
+
+### Setup and scope
+
+- **Hardware:** DGX B200 nodes with 8 GPUs; each GPU has 192 GB HBM3e and 8 TB/s memory bandwidth.
+- **Execution:** One GPU per run, with SM clocks locked at 1,500 MHz.
+- **Coverage:** Agent optimization across all 235 problems in L1, L2, Quant, and FlashInfer-Bench.
+- **Questions:** Does speedup capture hardware efficiency? Do safeguards catch exploits? How much headroom remains?
+
+<p class="experiment-takeaway">In these experiment plots, <strong>S = 0.5 means parity with the PyTorch reference</strong>. The resulting optimized solutions become the new scoring baselines.</p>
+
+Notes:
+Sources: https://arxiv.org/html/2603.19173v1#S5.SS1 and Sections 5.2–5.4; SOL-Exec Bench.md, Experiments / Setup.
+The paper uses CUDA 13.1.1, cuDNN 9.17.1, PyTorch 2.9.0, and NVIDIA driver 580.95. A run uses one GPU, not all eight jointly. Timing follows the evaluation protocol already described in this deck.
+Important distinction: Section 4.5 defines the optimized scoring baseline Tb, but Figures 6–10 assess the agent solutions relative to the PyTorch reference. Figure 10a explicitly labels 0.5 as parity with that reference, and Figure 10 calls the agent solution the new scoring baseline. Interpret this section as analysis of baseline construction, not a score of 0.732 against the optimized solutions themselves.
+
+--
+
+<!-- .slide: class="experiment-slide" -->
+## Speedup and Remaining SOL Distance
+
+<div class="experiment-split">
+  <img class="plain experiment-plot" src="assets/plots/sol-fig6.svg" alt="Figure 6: workload speedup over PyTorch versus remaining distance from the hardware SOL bound, on logarithmic axes.">
+  <div class="experiment-copy">
+    <p><strong>Right:</strong> faster than PyTorch.<br><strong>Down:</strong> closer to the SOL bound.</p>
+    <p>A kernel can be <strong>10× faster</strong> than PyTorch and still take <strong>over 10× the SOL runtime</strong>.</p>
+    <p class="experiment-takeaway">Speedup alone hides remaining hardware headroom.</p>
+  </div>
+</div>
+
+Notes:
+Sources: https://arxiv.org/html/2603.19173v1#S5.SS2, Figure 6; SOL-Exec Bench.md, Experiments / SOL Score vs. Speedup.
+Original figure: assets/plots/sol-fig6.svg, supplied in the repository. Each point is a workload. The x-axis is Tref/Tk; the y-axis is Tk/TSOL. The paper's prose reports log–log correlation r = 0.10, while the supplied figure labels r = 0.13. Both indicate a weak relationship; the visible takeaway avoids choosing between these inconsistent values. Points left of speedup = 1 are slower than the reference.
+
+--
+
+<!-- .slide: class="experiment-slide" -->
+## SOL Score Across Both Axes
+
+<div class="experiment-split">
+  <img class="plain experiment-plot" src="assets/plots/sol-fig7.svg" alt="Figure 7: the same speedup and SOL-distance scatter, colored by SOL-score band with iso-score contours.">
+  <div class="experiment-copy">
+    <p>The same workloads are now colored by <strong>SOL score</strong>.</p>
+    <p>Contours connect equal scores. At a fixed speedup, approaching SOL increases the score.</p>
+    <p class="experiment-takeaway">Read speedup together with SOL distance.</p>
+  </div>
+</div>
+
+Notes:
+Sources: https://arxiv.org/html/2603.19173v1#S5.SS2, Figure 7; SOL-Exec Bench.md, Experiments / SOL Score vs. Speedup.
+Original figure: assets/plots/sol-fig7.svg. The reference is the midpoint anchor for these experiment plots. High score does not by itself mean that Tk is close to TSOL: the supplied plot contains blue points far above SOL as well as near it. The paper's prose describes high scores as clustering lower-right and upper-right scores as intermediate; do not generalize that description to every point. Very large speedups can receive high scores while substantial absolute SOL distance remains.
+
+--
+
+<!-- .slide: class="experiment-slide" -->
+## SOL Score and Reclaimed Headroom
+
+<div class="experiment-split">
+  <img class="plain experiment-plot" src="assets/plots/sol-fig8a.svg" alt="Figure 8a: SOL score closely follows the fraction of reference-to-SOL headroom reclaimed, with Pearson correlation about 0.98.">
+  <div class="experiment-copy">
+    <p><strong>Headroom reclaimed:</strong> the fraction of the reference-to-SOL runtime gap removed.</p>
+    <p>Score tracks this fraction closely: <strong>r ≈ 0.98</strong>.</p>
+    <p class="experiment-takeaway">Matching the reference gives S = 0.5; reaching SOL gives S = 1.</p>
+  </div>
+</div>
+
+Notes:
+Sources: https://arxiv.org/html/2603.19173v1#S5.SS2, Figure 8a; SOL-Exec Bench.md, Experiments / SOL Score vs. Speedup.
+Original figure: assets/plots/sol-fig8a.svg. Headroom reclaimed is h = (Tref − Tk)/(Tref − TSOL). With Tref as the score anchor, algebra gives S = 1/(2 − h). This explains the curved relationship: S is a nonlinear transformation of reclaimed headroom, not independent empirical evidence of causation. S is at least 0.5 only when the solution matches or beats the reference; slower solutions can score below 0.5.
+The supplied figure labels Pearson r = 0.980, while Section 5.2 states 0.981. The slide uses the consistent rounded value 0.98.
+
+--
+
+<!-- .slide: class="experiment-slide" -->
+## The Same Speedup Can Close Different Gaps
+
+<div class="experiment-split">
+  <img class="plain experiment-plot" src="assets/plots/sol-fig8b.svg" alt="Figure 8b: speedup versus reclaimed headroom, colored by SOL score; at 3 times speedup, workloads span a broad range of headroom reclaimed.">
+  <div class="experiment-copy">
+    <p>At about <strong>3× speedup</strong>, reclaimed headroom ranges from <strong>below 20% to above 80%</strong>.</p>
+    <p>The difference is how far the reference started from SOL.</p>
+    <p class="experiment-takeaway">Equal speedups need not represent equal progress toward hardware limits.</p>
+  </div>
+</div>
+
+Notes:
+Sources: https://arxiv.org/html/2603.19173v1#S5.SS2, Figure 8b; SOL-Exec Bench.md, Experiments / SOL Score vs. Speedup.
+Original figure: assets/plots/sol-fig8b.svg. Unlike Figures 6–7, speedup is on the y-axis; reclaimed headroom is on the x-axis. Read the horizontal spread at 3×. The paper reports correlation with reclaimed headroom of r = 0.81 for speedup versus approximately 0.98 for SOL score. Colors move from low score in red toward high score in green.
+
+--
+
+<!-- .slide: class="experiment-slide experiment-wide" -->
+## Reward Hacking in Agent Submissions
+
+<img class="plain experiment-plot" src="assets/plots/sol-fig9.svg" alt="Figure 9: detected exploit counts led by precision downgrade, 259; monkey patching, 134; stream injection, 100; and cached outputs, 67.">
+<p class="experiment-takeaway"><strong>589 submissions (14.5%) were flagged and rejected.</strong><br>Runtime checks and static analysis are part of measuring optimization quality.</p>
+
+Notes:
+Sources: https://arxiv.org/html/2603.19173v1#S5.SS3, Figure 9; SOL-Exec Bench.md, Experiments / Mitigating Reward Hacking.
+Original figure: assets/plots/sol-fig9.svg. Counts refer to agent submissions, not distinct benchmark problems. Precision downgrade is the most common detected exploit. As discussed earlier, lower precision is permitted when the required types and tight accuracy tolerances are preserved; the exploit is an unacceptable downgrade that evades validation.
+The 14.5% figure is the detected and rejected share under the combined checks, not a measured detection recall or proof that every exploit was caught. The paper describes manual review before accepting a new scoring baseline.
+
+--
+
+<!-- .slide: class="experiment-slide experiment-wide" -->
+## Agent Results Across Categories
+
+<img class="plain experiment-plot" src="assets/plots/sol-fig10a.svg" alt="Figure 10a: SOL-score histograms and box plots for L1, L2, Quant, and FlashInfer-Bench; every category has a median above reference parity at 0.5.">
+<p class="experiment-takeaway">Every category’s median exceeds <strong>reference parity (S = 0.5)</strong>.<br>Scores below 1 show that optimization headroom remains.</p>
+
+Notes:
+Sources: https://arxiv.org/html/2603.19173v1#S5.SS4, Figure 10a; SOL-Exec Bench.md, Experiments / Scoring Baseline.
+Original figure: assets/plots/sol-fig10a.svg. These are workload distributions, and n in each panel is a workload count. The text reports an overall median of 0.732. The supplied figure labels category medians as L1 0.690, L2 0.761, Quant 0.757, and FI-Bench 0.812. Section 5.4 prose instead gives L1 0.688 and FI-Bench 0.789. The original figure is retained; the visible takeaway uses only the shared qualitative conclusion, rather than mixing inconsistent category statistics.
+Here 0.5 denotes the PyTorch reference, not parity with the newly selected optimized baseline. A median above 0.5 does not mean every workload improves.
+
+--
+
+<!-- .slide: class="experiment-slide experiment-wide" -->
+## Agent Solutions Move Closer to SOL
+
+<img class="plain experiment-plot" src="assets/plots/sol-fig10b.svg" alt="Figure 10b: agent versus PyTorch-reference distance from SOL, with most workloads below the no-improvement diagonal and many still well above the SOL line.">
+<p class="experiment-takeaway"><strong>Below the diagonal:</strong> closer to SOL than the reference.<br><strong>Above the bottom line:</strong> more optimization is still possible.</p>
+
+Notes:
+Sources: https://arxiv.org/html/2603.19173v1#S5.SS4, Figure 10b; SOL-Exec Bench.md, Experiments / Scoring Baseline.
+Original figure: assets/plots/sol-fig10b.svg. The x-axis is Tref/TSOL; the y-axis is Tk/TSOL, both logarithmic. Most points below the diagonal indicate improvement over PyTorch; the horizontal line at y = 1 is the hardware SOL target. Some workloads remain far above this line despite substantial relative improvement.
+This is evidence about the paper's GPU kernel experiments. It motivates the following LlamaSOL discussion but does not establish end-to-end inference gains in llama.cpp.
+
+---
+
 <!-- .slide: class="closing-slide" -->
 <p class="closing-label">LlamaSOL · Open discussion</p>
 

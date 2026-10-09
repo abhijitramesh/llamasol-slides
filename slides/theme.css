@@ -376,6 +376,15 @@
 .reveal .baseline-number { border-radius: 50%; background: #fff0f5; color: #a51a4a; font: 28px/50px var(--r-heading-font); text-align: center; }
 .reveal .baseline-step h3 { font-size: 29px; margin: 0 0 6px; }
 .reveal .baseline-step p { font-size: 25px; line-height: 1.35; margin: 0; }
+/* Experiment figures retain their original axes, labels, and proportions. */
+.reveal .experiment-slide > h2 { font-size: 52px; margin-bottom: 24px; }
+.reveal .experiment-slide > h3 { font-size: 34px; margin-bottom: 24px; }
+.reveal .experiment-setup li { font-size: 28px; line-height: 1.4; margin-bottom: 18px; }
+.reveal .experiment-split { display: grid; grid-template-columns: 740px 1fr; gap: 36px; align-items: center; }
+.reveal .experiment-slide img.experiment-plot { display: block; width: 100%; height: 500px; max-height: none; margin: 0; object-fit: contain; border: 0; box-shadow: none; background: transparent; }
+.reveal .experiment-copy p { font-size: 27px; line-height: 1.4; margin: 0 0 24px; }
+.reveal .experiment-slide .experiment-takeaway { font-size: 27px; line-height: 1.4; color: #a51a4a; margin: 22px 0 0; }
+.reveal .experiment-wide img.experiment-plot { height: 460px; }
 .reveal .closing-slide { text-align: center; }
 .reveal .closing-label { font-size: 28px; color: #a51a4a; margin: 0 0 36px; }
 .reveal .closing-slide h2 { font-size: 76px; line-height: 1.2; }
