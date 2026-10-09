@@ -2,7 +2,7 @@
 
 Prepared by: Abhijit Ramesh
 
-October 7, 2026
+October 9, 2026
 
 Notes:
 Source: Paper/2603.19173v1.pdf, title page.
@@ -1085,3 +1085,10 @@ Quantization support is unresolved; format-dependent computation, data movement,
 Notes:
 Proposed exploratory work, not a commitment that the local GPU or llama.cpp graphs are currently supported by SOLAR.
 Start with a single model and a narrowly scoped workload. Attempt the paper-style specification and graph extraction, then investigate how to adapt the graph to SOLAR's expected inputs. Record unsupported operators, quantization formats, and hardware assumptions before expanding the experiment.
+
+---
+
+<!-- .slide: class="closing-slide" -->
+## Thank you!
+
+<p class="closing-label">Questions &amp; discussion</p>
