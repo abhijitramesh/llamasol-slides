@@ -1,15 +1,23 @@
 # LlamaSOL slides
 
-[View the slides](https://abhijitramesh.github.io/llamasol-slides/) ·
+[SOL-ExecBench slides](https://abhijitramesh.github.io/llamasol-slides/) ·
+[SOLAR methodology slides](https://abhijitramesh.github.io/llamasol-slides/solar/) ·
 [Deployment status](https://github.com/abhijitramesh/llamasol-slides/actions/workflows/deploy.yml)
 
-Reveal.js presentations for the LlamaSOL project. The current deck reviews
+Reveal.js presentations for the LlamaSOL project. The original deck reviews
 [SOL-ExecBench](https://arxiv.org/abs/2603.19173) and explores extending its ideas
 to end-to-end inference in llama.cpp.
 
 Styled with Josh Dzielak's [Robot Lung theme](https://revealjs-themes.dzello.com/robot-lung),
 using local Roboto fonts, pink accents, and no decorative frame.
 Research PDFs and original working notes remain outside this repository.
+
+The separate **SOLAR methodology** deck at `/solar/` covers executable Affine
+Loop IR, translation validation, deterministic einsum extraction, worked FLOP
+and byte counts, fusion, cache-aware bounds, contraction ordering, and limitations.
+Its ten slides use a warm paper theme with blue and orange accents, and include
+speaker notes and arXiv source links. It does not cover runtime adaptation or
+SOL-ExecBench. All of its browser dependencies are vendored locally.
 
 ## Publish and update
 
@@ -26,8 +34,10 @@ git push
 ```
 
 Add new sections to the current deck as the project develops. For separate future
-decks, add distinct HTML entry points and configure Vite's multi-page build;
-keep this deck's URL stable for existing links.
+decks, use distinct HTML entry points with Vite's multi-page build, or a
+self-contained directory under `slides/public/` that Vite copies to `dist/`.
+Keep existing deck URLs stable for shared links. The SOLAR deck uses the second
+approach at `slides/public/solar/`.
 
 Only `dist/` is deployed. Slide content, speaker notes, and bundled assets are
 part of the published presentation.
@@ -42,6 +52,7 @@ npm run dev
 ```
 
 Open http://localhost:5173. Edits reload automatically.
+The SOLAR methodology deck is at http://localhost:5173/solar/.
 
 ## Author
 
@@ -53,6 +64,9 @@ Open http://localhost:5173. Edits reload automatically.
   `slides/public/licenses/robot-lung.txt`. The optional decorative frame is omitted.
 - `slides/main.js`: Reveal configuration and plugins. Canvas: 1280 × 720 (16:9).
 - `slides/public/assets/`: figures and images, referenced as `assets/filename.png`.
+- `slides/public/solar/index.html`: SOLAR slide content and per-slide speaker notes.
+- `slides/public/solar/theme.css` and `deck.js`: SOLAR styling and Reveal configuration.
+- `slides/public/solar/assets/`: local Reveal/KaTeX distributions, math fonts, and licenses.
 
 Use `Notes:` on its own line to start speaker notes. Put source references in the
 notes of the relevant slide. Use fenced code blocks for syntax highlighting,
@@ -77,6 +91,8 @@ when incorporated into slides. The referenced Excalidraw drawing is not included
 - Open http://localhost:5173/?print-pdf in Chrome/Chromium, then print to PDF with
   landscape orientation, no margins, background graphics enabled, and browser
   headers/footers disabled. Inspect the preview before saving.
+- For the SOLAR deck, use `/solar/?print-pdf` (add `&notes` for notes on separate
+  pages). Its standard Reveal navigation uses arrows/Space, Esc, F, and S.
 - `npm run build` creates a standalone static site in `dist/`.
 - `npm run preview` serves that build locally, normally at http://localhost:4173.
 

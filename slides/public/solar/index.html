@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A technical walkthrough of SOLAR: executable affine IR, deterministic einsum extraction, and multi-fidelity speed-of-light analysis.">
+  <title>SOLAR — From source to speed-of-light bounds</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/reveal/dist/reset.css">
+  <link rel="stylesheet" href="assets/reveal/dist/reveal.css">
+  <link rel="stylesheet" href="assets/katex/katex.min.css">
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<!-- 01 · The whole architecture, with no motivation preamble. -->
+<section class="slide cover" data-name="Pipeline" data-timing="120">
+  <div class="eyebrow"><span class="sun"></span> PAPER WALKTHROUGH <span class="eyebrow-rule"></span> METHODOLOGY / 2026</div>
+  <div class="cover-grid">
+    <div class="cover-copy">
+      <div class="wordmark">SOLAR<span class="period">.</span></div>
+      <h1>From source to<br>speed-of-light bounds.</h1>
+      <p class="lede">Executable translation.<br>Deterministic analysis.<br>Explicit hardware assumptions.</p>
+      <p class="paper-title">AI-Powered Speed-of-Light Performance Analysis<br><span>Huang et al. · NVIDIA · arXiv:2606.26383v1</span></p>
+    </div>
+    <div class="pipeline">
+      <div class="pipeline-input">PyTorch / JAX <span>+ concrete shapes &amp; dtypes</span></div>
+      <div class="pipeline-arrow">↓</div>
+      <div class="pipeline-stage generated"><span class="stage-id">01</span><div><h3>Executable Affine Loop IR</h3><p>LLM translation · output comparison</p></div><span class="pill orange">GENERATIVE</span></div>
+      <div class="pipeline-arrow">↓ <small>validated translation</small></div>
+      <div class="pipeline-stage"><span class="stage-id">02</span><div><h3>Extended Einsum Graph</h3><p>Iteration spaces · dependencies · tensor metadata</p></div></div>
+      <div class="pipeline-arrow">↓ <small>graph + hardware specifications</small></div>
+      <div class="pipeline-stage"><span class="stage-id">03</span><div><h3>Analytical SOL backend</h3><p>FLOPs · DRAM traffic · capacity constraints</p></div><span class="pill blue">DETERMINISTIC</span></div>
+      <div class="pipeline-output"><span>Unfused</span><span>Fused</span><span>Cache-aware</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><span>THE CONTRACT</span> Preserve program semantics first. Derive performance quantities from explicit structure.</div>
+  <footer><span>SOLAR / TECHNICAL READING</span><a href="https://arxiv.org/pdf/2606.26383v1#page=4" target="_blank" rel="noopener">§3 · pp. 4–7 ↗</a></footer>
+  <aside class="notes">
+    <p>This is a methodology talk. Start with the pipeline rather than background on roofline or motivation. SOLAR stands for Speed-of-Light Analysis for Runtime.</p>
+    <p>The original source program and a concrete workload enter the frontend. The LLM produces executable Python Affine Loop IR, which is compared numerically against the source. Only accepted translations enter deterministic graph extraction and analysis.</p>
+    <p>The important separation is between translation and numerical cost derivation. Executability makes translation testable; named dimensions, access structure, and dependencies make analysis mechanical. Numerical validation is not a formal semantics proof.</p>
+    <p>The rest of the talk follows these stage contracts. Source: abstract, §3, and Figure 2.</p>
+  </aside>
+</section>
+
+<!-- 02 -->
+<section class="slide" data-name="Affine Loop IR" data-timing="150">
+  <div class="eyebrow">01 / VALIDATED FRONTEND</div>
+  <h2>Restrict the kernels.<br><span class="muted">Keep composition expressive.</span></h2>
+  <div class="split ir-layout">
+    <div class="code-panel">
+      <div class="panel-label"><span class="dot"></span> AFFINE KERNEL <span>simplified from Fig. 2</span></div>
+      <pre><code class="language-python">@kernel
+def matmul(Y: Tensor("B,M,N"),
+           D: Tensor("N,P")):
+    Z = Tensor(B=Y.shape[0],
+               M=Y.shape[1], P=D.shape[1])
+    for b in Dim("B"):
+        for m in Dim("M"):
+            for p in Dim("P"):
+                for n in Dim("N"):
+                    Z[b,m,p] += Y[b,m,n] * D[n,p]
+    return Z</code></pre>
+      <div class="code-caption">Named dimensions connect loops, tensor axes, and einsum subscripts.</div>
+    </div>
+    <div class="ir-explain">
+      <div class="numbered-point"><b>01</b><div><h3>Restricted kernel layer</h3><p>Static shape bounds, affine indices, perfectly nested loops, restricted scalar operations.</p><p class="small">No data-dependent branching inside the kernel.</p></div></div>
+      <div class="numbered-point"><b>02</b><div><h3>Unrestricted composition</h3><p><code>model()</code> connects kernels, expresses recurrence, and invokes builtins.</p><p class="small">reshape · slice · gather · concat · apply_mask</p></div></div>
+      <div class="metadata"><span class="label">TENSOR METADATA</span><code>shape · dtype · role · sparsity</code><p>Executable Python + Numba accelerate validation.</p></div>
+    </div>
+  </div>
+  <div class="takeaway"><span>DESIGN CHOICE</span> The same IR must be easy to generate, executable to validate, and structured enough to analyze.</div>
+  <footer><span>IR DESIGN</span><a href="https://arxiv.org/pdf/2606.26383v1#page=4" target="_blank" rel="noopener">§3.1.1 · pp. 4–5 ↗</a></footer>
+  <aside class="notes">
+    <p>The paper gives four requirements: mechanical einsum extraction, broad workload expressiveness, reliable LLM generation, and scalable executable validation. The split into kernel and composition layers reconciles them.</p>
+    <p>The code is a simplified excerpt of the second kernel in Figure 2. Tensor defaults and the actual IR library provide initialization behavior. This is explanatory code, not a standalone Python program.</p>
+    <p>Index expressions are affine in loop variables and bounds are static shape constants. The composition layer can invoke data-movement and data-dependent-indexing builtins. Sparse apply_mask propagates sparsity metadata for subsequent effective byte/FLOP estimates.</p>
+    <p>The paper also permits parallel=True annotations on independent loops to speed validation. A broad composition layer does not make arbitrary control flow inside affine kernels analyzable.</p>
+  </aside>
+</section>
+
+<!-- 03 -->
+<section class="slide" data-name="Generate and verify" data-timing="150">
+  <div class="eyebrow">01 / VALIDATED FRONTEND</div>
+  <h2>Generate. Execute. Compare. <span class="accent">Repair.</span></h2>
+  <p class="subhead">Numerical validation gates access to the analytical backend.</p>
+  <div class="validation-diagram">
+    <div class="validation-top"><div class="node light">Original program</div><span class="arrow">→</span><div class="node light">Golden outputs</div></div>
+    <div class="golden-line">reference comparison ↓</div>
+    <div class="validation-main"><div class="node orange-node">Translator agent<small>IR spec + language adapter</small></div><span class="arrow">→</span><div class="node">Execute IR<small>Python / Numba</small></div><span class="arrow">→</span><div class="node">Compare outputs<small>accept or diagnose</small></div><span class="arrow blue-text">→</span><div class="node blue-node">Validated IR</div></div>
+    <div class="retry"><span>↑</span><div>Diagnostic feedback · regenerate on failure</div><span>↲</span></div>
+  </div>
+  <div class="two-columns validation-bottom">
+    <div><span class="label">PROMPT SEPARATION</span><p><strong>Fixed:</strong> IR grammar + few-shot examples<br><strong>Variable:</strong> source-language conventions</p></div>
+    <div class="caution"><span class="label">VALIDATION BOUNDARY</span><p>Matching sampled outputs is evidence of equivalence.<br><strong>It is not a formal proof or a check of cost accuracy.</strong></p></div>
+  </div>
+  <div class="takeaway"><span>TRUST BOUNDARY</span> The LLM proposes a program. Execution provides feedback. Deterministic analysis derives the costs.</div>
+  <footer><span>AGENTIC TRANSLATION</span><a href="https://arxiv.org/pdf/2606.26383v1#page=5" target="_blank" rel="noopener">§3.1.2 · p. 5 ↗</a></footer>
+  <aside class="notes">
+    <p>First execute the source to capture golden outputs. The agent receives a fixed description of the target IR and language-specific conventions, generates IR, and receives feedback from its execution and output comparison. Failed translations are repaired in a loop.</p>
+    <p>A new source language needs a capture module and a source-language prompt adapter, according to the paper. Downstream analysis remains shared.</p>
+    <p>Do not imply that passing numerical checks proves semantic equivalence. The paper explicitly states that sampled inputs can miss a mismatch. Also distinguish a correct numerical translation from a correct operation-counting or memory model: they are different properties.</p>
+    <p>The paper does not fully specify tolerances, sampling policy, or retry budgets in this section. Avoid inventing those parameters.</p>
+  </aside>
+</section>
+
+<!-- 04 -->
+<section class="slide" data-name="Einsum extraction" data-timing="150">
+  <div class="eyebrow">02 / DETERMINISTIC EXTRACTION</div>
+  <h2>Loops become subscripts.<br><span class="muted">Tensor flow becomes the graph.</span></h2>
+  <div class="extraction-grid">
+    <div class="extraction-left">
+      <div class="code-panel compact"><div class="panel-label">SCALAR UPDATE</div><pre><code class="language-python">Y[b,m,n] += X[b,m,k] * W[n,k]</code></pre></div>
+      <div class="dimension-map"><div><span>LOOP INDICES</span><b>B M N K</b></div><div><span>OUTPUT INDICES</span><b>B M N</b></div><div class="highlight-dim"><span>REDUCTION</span><b>K</b></div></div>
+      <div class="formula-block"><span class="math" data-tex="\mathcal{D}_R=\mathcal{D}\setminus\mathcal{D}_O"></span></div>
+      <div class="einsum-equation"><span>BMK, NK</span><span class="arrow">→</span><strong>BMN</strong></div>
+    </div>
+    <div class="extraction-right">
+      <div class="numbered-point"><b>01</b><div><h3>Trace composition</h3><p>Intercept kernel and builtin calls. Record tensors and metadata without executing loop bodies.</p></div></div>
+      <div class="numbered-point"><b>02</b><div><h3>Inspect kernel structure</h3><p>Read access indices, output dimensions, and reductions; emit extended einsums.</p></div></div>
+      <div class="numbered-point"><b>03</b><div><h3>Annotate and serialize</h3><p>Nodes: work, traffic, fusibility.<br>Edges: tensor dependencies.<br>YAML sidecar: backend interchange.</p></div></div>
+    </div>
+  </div>
+  <div class="extended-strip"><span class="label">WHY “EXTENDED”?</span><span>Softmax needs <b>max → subtract → exp → sum → divide</b>. Subscripts alone do not specify operation semantics.</span></div>
+  <footer><span>EINSUM GRAPH</span><a href="https://arxiv.org/pdf/2606.26383v1#page=6" target="_blank" rel="noopener">§3.2 · p. 6 ↗</a></footer>
+  <aside class="notes">
+    <p>There are two different activities here: tracing composition to obtain a dependency graph, and inspecting affine kernel bodies to derive index structure. The tracer constructs the graph without executing loop bodies.</p>
+    <p>For this matrix multiplication, the loop index K is absent from the output and therefore reduced. The paper's definition is D_R = D minus D_O. This does not mean every reduction is a sum of products: extended einsums carry reduction and operation semantics.</p>
+    <p>The graph is a DAG whose nodes are extended einsums and edges carry tensors. A YAML sidecar supports downstream consumption by analytical tools. Builtins such as gather, select, and reshape are classified as data-movement-only for the analysis, with zero MACs but nonzero modeled traffic.</p>
+    <p>The softmax chain is an explanatory decomposition, not an exact listing of an implementation from the paper.</p>
+  </aside>
+</section>
+
+<!-- 05 -->
+<section class="slide" data-name="Worked example" data-timing="180">
+  <div class="eyebrow">WORKED EXAMPLE / FIGURE 2</div>
+  <h2>One intermediate tensor.<br><span class="accent">Two DRAM transfers to remove.</span></h2>
+  <div class="example-top"><code>Y = XWᵀ + bias; &nbsp; Z = YD</code><span>B=2 · M=128 · K=256 · N=512 · P=64</span></div>
+  <svg class="example-graph" viewBox="0 0 1456 190" role="img" aria-label="X, W, and bias feed a linear contraction. Intermediate Y feeds a second contraction with D to produce Z. Fusion can retain Y on chip.">
+    <defs><marker id="arrow5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6e777b"/></marker></defs>
+    <rect x="240" y="22" width="930" height="148" rx="8" fill="#edf1ef" stroke="#a6b4ad" stroke-dasharray="7 6"/>
+    <text x="260" y="47" class="svg-kicker">FUSIBLE REGION</text>
+    <text x="75" y="64" class="svg-label">X: BMK</text><text x="75" y="105" class="svg-label">W: NK</text><text x="75" y="146" class="svg-label">bias: N</text>
+    <path d="M170 60 L305 88 M170 101 L305 101 M170 141 L305 114" fill="none" stroke="#6e777b" stroke-width="2" marker-end="url(#arrow5)"/>
+    <rect x="310" y="65" width="300" height="80" rx="5" fill="#fffdf8" stroke="#c9cec9"/>
+    <text x="460" y="98" text-anchor="middle" class="svg-label">linear + bias</text><text x="460" y="127" text-anchor="middle" class="svg-code">BMK,NK,N → BMN</text>
+    <path d="M610 105 L828 105" stroke="#ce5c32" stroke-width="3" marker-end="url(#arrow5)"/>
+    <text x="720" y="88" text-anchor="middle" class="svg-label orange-text">Y: BMN</text><text x="720" y="142" text-anchor="middle" class="svg-small">keep on chip</text>
+    <rect x="840" y="65" width="275" height="80" rx="5" fill="#fffdf8" stroke="#c9cec9"/>
+    <text x="978" y="98" text-anchor="middle" class="svg-label">matmul</text><text x="978" y="127" text-anchor="middle" class="svg-code">BMN,NP → BMP</text>
+    <text x="985" y="18" text-anchor="middle" class="svg-label">D: NP</text><path d="M985 25 L985 59" stroke="#6e777b" stroke-width="2" marker-end="url(#arrow5)"/>
+    <path d="M1115 105 L1260 105" stroke="#6e777b" stroke-width="2" marker-end="url(#arrow5)"/><text x="1280" y="113" class="svg-label">Z: BMP</text>
+  </svg>
+  <div class="example-bottom">
+    <div class="example-cost"><span class="label">CONTRACTION WORK</span><div class="math" data-tex="F\approx2BMKN+2BMNP"></div><div class="big-number">83.9 <span>MFLOP</span></div><p>Matmul arithmetic; bias initialization tracked separately.</p></div>
+    <div class="example-cost"><span class="label">ELIMINATED TRAFFIC · FP32</span><div class="math" data-tex="\Delta Q=2\,\mathrm{bytes}(Y)"></div><div class="big-number">1.049 <span>MB</span></div><p>One write + one read of a 0.524 MB intermediate.</p></div>
+    <div class="example-result"><span class="label">FIGURE 2 REPORTS · H100 PCIE</span><table><thead><tr><th></th><th>Unfused</th><th>Fused</th></tr></thead><tbody><tr><th>Traffic</th><td>2.03 MB</td><td>0.99 MB</td></tr><tr><th>SOL</th><td>1.00 μs</td><td>0.82 μs</td></tr><tr><th>Limit</th><td>Memory</td><td class="blue-text">Compute</td></tr></tbody></table></div>
+  </div>
+  <footer><span>DERIVATION: SHAPES + 4-BYTE ELEMENTS · FIGURE VALUES REPORTED BY THE PAPER</span><a href="https://arxiv.org/pdf/2606.26383v1#page=5" target="_blank" rel="noopener">Fig. 2 · p. 5 ↗</a></footer>
+  <aside class="notes">
+    <p>This is the anchor example. Start with the dependency graph, then count work, then explain memory traffic. The source is Figure 2's LinearBiasMatmul.</p>
+    <p>For the first contraction: 2*2*128*512*256 = 67,108,864 FLOPs. For the second: 2*2*128*512*64 = 16,777,216. Total contraction arithmetic is 83,886,080, rounded to 83.9 MFLOP. Bias initialization is separate; do not interpret every loop statement as a MAC.</p>
+    <p>With FP32 elements, Y contains 2*128*512 = 131,072 elements, or 524,288 bytes. Eliminating its write and read saves 1,048,576 bytes. Count all tensor reads/writes once to obtain 2,033,664 unfused bytes and 985,088 fused bytes. MB is decimal throughout.</p>
+    <p>The latency and bottleneck values are reported directly from Figure 2; we are not independently calibrating its H100 throughput assumptions here. The next slide explains the formula, not a reproduction of the hardware table.</p>
+    <p>This idealized fusion example assumes no external consumer forces Y to be materialized, and does not include capacity-driven rereads.</p>
+  </aside>
+</section>
+
+<!-- 06 -->
+<section class="slide" data-name="Cost model" data-timing="180">
+  <div class="eyebrow">03 / ANALYTICAL BACKEND</div>
+  <h2>Count work and bytes.<br><span class="muted">Then apply the hardware roofline.</span></h2>
+  <div class="cost-grid">
+    <div class="cost-definition"><span class="label">01 / CONTRACTION WORK</span><div class="math" data-tex="\mathrm{MACs}=\prod_{d\in\mathcal{D}_O\cup\mathcal{D}_R}|d|"></div><p>For sum-of-products contractions,<br><strong>F ≈ 2 × MACs.</strong></p><small>Other operations need their own semantics.</small></div>
+    <div class="cost-definition"><span class="label">02 / IDEAL TENSOR TRAFFIC</span><div class="math" data-tex="Q=\sum_i\mathrm{bytes}(T_i)+\mathrm{bytes}(T_{out})"></div><p>Read each input once.<br>Write the output once.</p><small>A traffic assumption, not a measured DRAM count.</small></div>
+  </div>
+  <div class="roofline-equation"><span class="math" data-tex="T_{\mathrm{SOL}}=\max\!\left(\frac{F}{\Pi},\frac{Q}{\beta}\right)"></span><div><p><b>Π</b> peak dense compute [FLOP/s]</p><p><b>β</b> DRAM bandwidth [byte/s]</p><p class="small">Perfect compute / transfer overlap assumed.</p></div></div>
+  <div class="cost-bottom"><div><span class="label">BOTTLENECK</span><div class="math" data-tex="A=F/Q;\quad A>\Pi/\beta\Rightarrow\text{compute-bound}"></div></div><div><span class="label">UNFUSED GRAPH AGGREGATION</span><div class="math" data-tex="T^{unfused}_{\mathrm{SOL}}=\sum_v\max\!\left(F_v/\Pi,Q_v/\beta\right)"></div></div></div>
+  <footer><span>SUM OF PER-OPERATOR MAXIMA ≠ ONE MAXIMUM OF GRAPH TOTALS</span><a href="https://arxiv.org/pdf/2606.26383v1#page=6" target="_blank" rel="noopener">§3.2.1–3.3 · pp. 6–7 ↗</a></footer>
+  <aside class="notes">
+    <p>The MAC product is for a sum-of-products contraction. A maximum reduction, exponential, division, or data-movement builtin should not be silently treated as the same scalar work. Operation semantics remain necessary.</p>
+    <p>The byte expression abbreviates the paper's dtype-width times tensor-element-count formula. It assumes one read of each input and one write of the output. It is idealized traffic, not an assertion about actual cache behavior.</p>
+    <p>Each analyzed unit must execute its arithmetic and move data. Under ideal overlap, max(F/Pi,Q/beta) bounds latency. Pi and beta need compatible precision and units. A is arithmetic intensity, with the ridge at Pi/beta.</p>
+    <p>The paper explicitly states unfused graph time as a sum over per-node bounds. Algebraically, sum(max(a_v,b_v)) is at least max(sum(a_v),sum(b_v)); replacing it with a single global max changes overlap assumptions. The full fusion-group aggregation policy is not completely specified in the paper.</p>
+  </aside>
+</section>
+
+<!-- 07 -->
+<section class="slide" data-name="Fusion and fidelity" data-timing="180">
+  <div class="eyebrow">03 / ANALYTICAL BACKEND</div>
+  <h2>Same arithmetic.<br><span class="accent">Different traffic assumptions.</span></h2>
+  <div class="fidelity-columns">
+    <article class="fidelity"><span class="mode-number">01</span><h3>Unfused</h3><div class="mini-flow"><span>Op A</span><b>→ DRAM →</b><span>Op B</span></div><p>Materialize intermediates between operators.</p><div class="mode-assumption">Unlimited capacity <em>within</em> an operator; each tensor transferred once.</div></article>
+    <article class="fidelity blue-fidelity"><span class="mode-number">02</span><h3>Fused</h3><div class="mini-flow"><span>Op A</span><b>→ on-chip →</b><span>Op B</span></div><p>Remove eligible intermediate DRAM round trips.</p><div class="mode-assumption">Unlimited capacity for the fused computation.</div></article>
+    <article class="fidelity"><span class="mode-number">03</span><h3>Cache-aware fused</h3><div class="mini-flow"><span>Tile A</span><b>↔ DRAM ↔</b><span>Tile B</span></div><p>Account for rereads required by finite capacity.</p><div class="mode-assumption">Traffic constrained by buffer size and tiling.</div></article>
+  </div>
+  <div class="fusion-boundary"><span class="label">WHEN CAN AN INTERMEDIATE DISAPPEAR?</span><p>The fused region must retain its required values. External consumers or graph outputs can still require materialization.</p><span class="small">Dependency-based fusibility is described; the complete grouping / legality policy is not specified in the paper.</span></div>
+  <div class="takeaway"><span>READ THE BOUNDS</span> Fusion lowers traffic; finite capacity can add traffic back. The three modes are not a universal accuracy ranking.</div>
+  <footer><span>FIXED COMPUTATION: THE THREE MODES KEEP THE SAME FLOP COUNT</span><a href="https://arxiv.org/pdf/2606.26383v1#page=7" target="_blank" rel="noopener">§3.3 · p. 7 ↗</a></footer>
+  <aside class="notes">
+    <p>For a fixed graph, the paper says all three modes share the same FLOPs and refine traffic accounting. Contraction reordering on slide 9 is a separate change to the computation.</p>
+    <p>Unfused assumes inputs/outputs transferred once within each operator and DRAM materialization between operators. Fused removes eligible intermediate transfers but retains unlimited capacity assumptions. Cache-aware fused imposes finite storage and can add rereads.</p>
+    <p>For Figure 2, ideal fusion removes both transfers of Y. For a general graph, an external consumer or required output can force a write to remain. This is a dependency-based explanation of why deleting every internal edge is not a sufficient general fusion algorithm; it is not a claim about a fully documented implementation rule in SOLAR.</p>
+    <p>Cache-aware fused is not necessarily above or below unfused because both fusion and capacity assumptions differ. Figure 4a reports headroom: L1 fused 4.3x, cache-aware 1.9x; L2 unfused 5.1x, cache-aware 10.5x, fused 21.6x. A smaller headroom ratio means a higher latency bound.</p>
+  </aside>
+</section>
+
+<!-- 08 -->
+<section class="slide" data-name="Cache-aware bounds" data-timing="180">
+  <div class="eyebrow">03 / CAPACITY-CONSTRAINED ANALYSIS</div>
+  <h2>Reuse must fit somewhere.</h2>
+  <p class="subhead">Finite on-chip capacity turns “read once” into a tiling problem.</p>
+  <div class="cache-layout">
+    <div class="cache-picture">
+      <div class="dram-band"><span>DRAM</span><code>X tiles &nbsp;·&nbsp; W tiles &nbsp;·&nbsp; output tiles</code></div>
+      <div class="traffic-arrows"><span>↓ load</span><span class="orange-text">↕ reread / spill</span><span>↑ store</span></div>
+      <div class="buffer"><div class="buffer-header"><b>ON-CHIP BUFFER</b><span>capacity S</span></div><div class="tiles"><div class="tile blue-tile">X tile</div><div class="tile orange-tile">W tile</div><div class="tile green-tile">output / partials</div></div><div class="math" data-tex="\sum\mathrm{resident\ tile\ bytes}\leq S"></div></div>
+      <p class="diagram-caption">Conceptual capacity constraint · not the solver’s exact formulation</p>
+    </div>
+    <div class="cache-solver"><span class="label">OROJENESIS / ACCELFORGE</span><h3>Optimize data movement<br>subject to capacity.</h3><div class="solver-steps"><p><b>Inputs</b><span>Iteration spaces, affine access maps,<br>fusion structure, buffer capacity</span></p><p><b>Search</b><span>Capacity-constrained tiling / data movement<br>using integer linear programming</span></p><p><b>Output</b><span>Refined DRAM traffic Q(S),<br>then the roofline latency bound</span></p></div></div>
+  </div>
+  <div class="takeaway"><span>IMPLEMENTATION BOUNDARY</span> SOLAR supplies the workload representation. The referenced analytical tools supply the cache-aware search.</div>
+  <footer><span>SOLVER DETAILS AND MEMORY-HIERARCHY ASSUMPTIONS REQUIRE THE REFERENCED IMPLEMENTATION</span><a href="https://arxiv.org/pdf/2606.26383v1#page=7" target="_blank" rel="noopener">§3.3 · p. 7; Fig. 1b · p. 2 ↗</a></footer>
+  <aside class="notes">
+    <p>Use the Figure 2 example mentally: eliminating Y's DRAM transfers assumes the fused computation can retain or appropriately tile the values it needs. Finite storage limits that assumption.</p>
+    <p>This drawing is illustrative. The sum of resident tiles must fit in the modeled buffer, but it does not reproduce Orojenesis's exact integer program. Distinguish resident tile footprint from the total logical size of every tensor in the graph.</p>
+    <p>The paper describes Orojenesis as formulating data movement under capacity constraints and solving an integer linear program on affine access maps using AccelForge. It refers out for the actual machinery. Buffer interpretation, admissible mappings, hierarchy, and exact constraints cannot be reconstructed from §3.3 alone.</p>
+    <p>More traffic means a larger memory-time term and potentially a tighter (higher) runtime lower bound relative to unlimited-capacity fused analysis. This refines optimism; it does not introduce launch overhead or guarantee attainable measured runtime.</p>
+  </aside>
+</section>
+
+<!-- 09 -->
+<section class="slide" data-name="Contraction ordering" data-timing="150">
+  <div class="eyebrow">GRAPH-LEVEL OPPORTUNITY / FIGURE 4b</div>
+  <h2>Change the association.<br><span class="muted">Change the amount of work.</span></h2>
+  <div class="ordering-layout">
+    <div class="ordering-chart" role="img" aria-label="DeepSeek MLA four-tensor contraction costs: best 1.6 TFLOP, left-to-right 3.2, balanced 6.2, and other orders 31.8 and 34.8. Reported best versus left-to-right reduction is 2.04 times.">
+      <div class="chart-heading"><span>FOUR-TENSOR CHAIN · FIVE ASSOCIATION ORDERS</span><span>TFLOP</span></div>
+      <div class="bar-row best"><code>((T₀·(T₁·T₂))·T₃)</code><div class="bar-track"><div class="bar" style="--bar:4.60%"></div><b>1.6</b></div><span class="bar-tag">BEST</span></div>
+      <div class="bar-row naive"><code>(((T₀·T₁)·T₂)·T₃)</code><div class="bar-track"><div class="bar" style="--bar:9.20%"></div><b>3.2</b></div><span class="bar-tag">LEFT → RIGHT</span></div>
+      <div class="bar-row"><code>((T₀·T₁)·(T₂·T₃))</code><div class="bar-track"><div class="bar" style="--bar:17.82%"></div><b>6.2</b></div><span></span></div>
+      <div class="bar-row"><code>(T₀·((T₁·T₂)·T₃))</code><div class="bar-track"><div class="bar" style="--bar:91.38%"></div><b>31.8</b></div><span></span></div>
+      <div class="bar-row"><code>(T₀·(T₁·(T₂·T₃)))</code><div class="bar-track"><div class="bar" style="--bar:100%"></div><b>34.8</b></div><span></span></div>
+      <div class="chart-caption">DeepSeek MLA · values redrawn from Figure 4b · rounded labels</div>
+    </div>
+    <div class="ordering-stats"><div><span class="big-number">2.04<span>×</span></span><p>Reported FLOP reduction<br>versus naïve left-to-right</p></div><div><span class="big-number">~22<span>×</span></span><p>Work range across<br>the five orders</p></div></div>
+  </div>
+  <div class="takeaway"><span>SEPARATE TWO LEVERS</span> Fusion changes data movement. Reassociation can change arithmetic work. Neither ratio is a measured speedup.</div>
+  <footer><span>ANALYTICAL OPPORTUNITY: EINSUM STRUCTURE MAKES ALTERNATIVE ORDERS EXPLICIT</span><a href="https://arxiv.org/pdf/2606.26383v1#page=8" target="_blank" rel="noopener">§4.1 · Fig. 4b · p. 8 ↗</a></footer>
+  <aside class="notes">
+    <p>The einsum graph enables enumerating contraction association orders. For four operands there are five binary parenthesizations. This example is DeepSeek MLA.</p>
+    <p>The graph reports rounded TFLOP values of 1.6, 3.2, 6.2, 31.8, and 34.8. The paper reports the unrounded best-vs-naive ratio as 2.04x and the full range as 22x. Do not recompute 2.04 using only the rounded chart labels.</p>
+    <p>Slide 7 held work fixed and changed memory assumptions. Here reassociation changes the iteration work performed. This is an analytical search result, not an implemented end-to-end latency measurement.</p>
+    <p>Reassociation can also alter floating-point accumulation behavior. This talk reports the paper's operation-count result and does not claim bitwise equivalence for every floating-point implementation.</p>
+  </aside>
+</section>
+
+<!-- 10 -->
+<section class="slide" data-name="Evidence and open details" data-timing="180">
+  <div class="eyebrow">EVIDENCE / BOUNDARIES / OPEN DETAILS</div>
+  <h2>Broad coverage.<br><span class="muted">Explicit limits on the claim.</span></h2>
+  <div class="evidence-strip"><div><b>270 / 270</b><span>KernelBench problems<br>validated and analyzed</span></div><div><b>8</b><span>JAX / Flax programs<br>demonstrate frontend portability</span></div><div><b>47.7×</b><span>L3 compiled runtime / fused SOL<br>geometric-mean headroom</span></div></div>
+  <div class="closing-grid">
+    <div><span class="label">WHAT THE PAPER ESTABLISHES</span><h3>A source-to-analysis bridge.</h3><p>Executable IR connects flexible translation to deterministic graph analysis.</p><p>Multiple traffic assumptions expose fusion, tiling, and contraction-order opportunities.</p></div>
+    <div><span class="label">WHAT THE BOUND DOES NOT PROVE</span><h3>Correctness or attainability.</h3><p>Sampled output checks can miss translation errors.</p><p>Shape-based analysis misses value-dependent optimizations. Ideal hardware assumptions do not guarantee realized latency.</p></div>
+    <div><span class="label">WHAT NEEDS MORE DETAIL</span><h3>The exact analysis policies.</h3><p>Fusibility / grouping and graph aggregation.</p><p>Non-MAC operation costs and precision conventions.</p><p>Cache hierarchy, solver constraints, and mapping choices.</p></div>
+  </div>
+  <div class="takeaway closing-takeaway"><span>KEY TAKEAWAY</span> The contribution is the validated representation pipeline—and the explicit assumptions connecting tensor programs to bounds.</div>
+  <footer><span>HEADROOM IS A THEORETICAL GAP, NOT A DEMONSTRATED OPTIMIZATION</span><a href="https://arxiv.org/pdf/2606.26383v1#page=7" target="_blank" rel="noopener">§3.1.2, §3.3, §4.1 · pp. 5–8 ↗</a></footer>
+  <aside class="notes">
+    <p>The evidence is useful but keep it subordinate to methodology. The paper reports full validated analysis coverage on the 270 evaluated KernelBench problems and demonstrates eight JAX/Flax programs. This is benchmark coverage, not universal operator coverage.</p>
+    <p>L3's torch.compile runtime divided by fused SOL is 47.7x as a geometric mean (Figure 3a). That is theoretical headroom under the model, not a delivered 47.7x optimization.</p>
+    <p>The abstract reports zero observed SOL violations. Such consistency is useful empirical evidence but neither proves correctness of every bound nor establishes tightness. Numerical translation validation is not a formal proof.</p>
+    <p>The limitations on values, compression/constant propagation, and hardware variability are explicit in §3.3. The last column distinguishes areas where the paper gives high-level mechanisms without complete implementation policies. Present them as questions raised by reading, not as claims that those features are absent from the code.</p>
+    <p>End here and take technical questions. No runtime-specific adaptation or benchmark-harness material is part of this deck.</p>
+  </aside>
+</section>
+</div></div>
+<div class="deck-help" aria-label="Presentation keyboard shortcuts">← → navigate <span>·</span> Esc overview <span>·</span> S notes <span>·</span> F fullscreen</div>
+<script src="assets/reveal/dist/reveal.js"></script>
+<script src="assets/reveal/dist/plugin/notes.js"></script>
+<script src="assets/reveal/dist/plugin/highlight.js"></script>
+<script src="assets/katex/katex.min.js"></script>
+<script src="deck.js"></script>
+</body>
+</html>

@@ -1,3 +1,6 @@
 node_modules/
 dist/
+# The standalone SOLAR deck vendors Reveal's browser distribution.
+!slides/public/solar/assets/reveal/dist/
+!slides/public/solar/assets/reveal/dist/**
 .DS_Store
